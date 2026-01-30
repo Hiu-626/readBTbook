@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>InkFlow Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts: Crimson Text (Serif), Inter (Sans), Noto Serif SC (CJK SC), Noto Serif TC (CJK TC) -->
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&family=Noto+Serif+SC:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      /* Paper Texture Overlay */
+      .paper-texture {
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+        pointer-events: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 50;
+        mix-blend-mode: multiply;
+      }
+      
+      /* Hide Scrollbar for clean reading */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      body {
+        overscroll-behavior: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "tailwind-merge": "https://esm.sh/tailwind-merge@^3.4.0",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "clsx": "https://esm.sh/clsx@^2.1.1",
+    "jszip": "https://esm.sh/jszip@3.10.1",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174",
+    "pdfjs-dist/": "https://esm.sh/pdfjs-dist@3.11.174/",
+    "opencc-js": "https://esm.sh/opencc-js@1.0.5"
+  }
+}
+</script>
+</head>
+  <body class="bg-[#F4F4F4] text-[#1A1A1A]">
+    <div id="root"></div>
+    <div class="paper-texture"></div>
+  </body>
+</html>
