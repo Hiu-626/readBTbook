@@ -42,14 +42,15 @@
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "tailwind-merge": "https://esm.sh/tailwind-merge@^3.4.0",
-    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
     "clsx": "https://esm.sh/clsx@^2.1.1",
-    "jszip": "https://esm.sh/jszip@3.10.1",
-    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174",
-    "pdfjs-dist/": "https://esm.sh/pdfjs-dist@3.11.174/",
-    "opencc-js": "https://esm.sh/opencc-js@1.0.5"
+    "tailwind-merge": "https://esm.sh/tailwind-merge@^3.4.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@^5.4.530",
+    "jszip": "https://esm.sh/jszip@^3.10.1",
+    "opencc-js": "https://esm.sh/opencc-js@^1.0.5"
   }
 }
 </script>
@@ -57,5 +58,7 @@
   <body class="bg-[#F4F4F4] text-[#1A1A1A]">
     <div id="root"></div>
     <div class="paper-texture"></div>
+    <!-- Entry point for Vite -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
