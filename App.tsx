@@ -116,6 +116,9 @@ const App: React.FC = () => {
             onSelectBook={handleSelectBook} 
             onImportBook={handleImportBook}
             onDeleteBook={handleDeleteBook}
+            user={user}
+            onLogin={login}
+            onLogout={logout}
         />
       )}
 

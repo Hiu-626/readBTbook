@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, LayoutGrid, List as ListIcon, Search, Cloud, Book as BookIcon, X } from 'lucide-react';
+import { Plus, LayoutGrid, List as ListIcon, Search, Cloud, Book as BookIcon, X, User, LogOut } from 'lucide-react';
 import { Book, ViewMode } from '../types';
 import { cn } from '../utils';
 
@@ -8,9 +8,12 @@ interface LibraryProps {
   onSelectBook: (book: Book) => void;
   onImportBook: (file: File) => void;
   onDeleteBook: (bookId: string) => void;
+  user?: any;
+  onLogin?: () => void;
+  onLogout?: () => void;
 }
 
-export const Library: React.FC<LibraryProps> = ({ books, onSelectBook, onImportBook, onDeleteBook }) => {
+export const Library: React.FC<LibraryProps> = ({ books, onSelectBook, onImportBook, onDeleteBook, user, onLogin, onLogout }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -44,7 +47,7 @@ export const Library: React.FC<LibraryProps> = ({ books, onSelectBook, onImportB
         <div className="font-sans text-sm font-medium tracking-wide uppercase text-[#1A1A1A]">My Library</div>
 
         {/* Right: Actions */}
-        <div className="flex gap-1 -mr-2">
+        <div className="flex gap-1 -mr-2 items-center">
              <button 
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                 className={cn("p-2 text-[#1A1A1A] active:opacity-50 transition-colors", isSearchOpen && "bg-stone-200")}
@@ -57,6 +60,36 @@ export const Library: React.FC<LibraryProps> = ({ books, onSelectBook, onImportB
             >
                 <Plus size={20} strokeWidth={1.5} />
             </button>
+            
+            {/* User / Login Button */}
+            <div className="ml-1 pl-1 border-l border-stone-300">
+                {user ? (
+                     <button 
+                        onClick={() => { if(window.confirm('Log out?')) onLogout?.(); }}
+                        className="p-1.5 rounded-full hover:bg-stone-200 transition-colors relative group"
+                        title="Sign Out"
+                     >
+                        {user.photoURL ? (
+                            <img src={user.photoURL} alt="User" className="w-6 h-6 rounded-full border border-stone-300" />
+                        ) : (
+                            <div className="w-6 h-6 rounded-full bg-stone-300 flex items-center justify-center text-[10px] font-bold">
+                                {user.displayName ? user.displayName[0] : 'U'}
+                            </div>
+                        )}
+                        <div className="absolute top-full right-0 mt-2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            Log out
+                        </div>
+                     </button>
+                ) : (
+                    <button 
+                        onClick={onLogin}
+                        className="p-2 text-[#1A1A1A] active:opacity-50"
+                        title="Sign In to Sync"
+                    >
+                        <User size={20} strokeWidth={1.5} />
+                    </button>
+                )}
+            </div>
         </div>
         <input 
             type="file" 
