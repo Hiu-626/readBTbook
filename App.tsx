@@ -25,15 +25,16 @@ const App: React.FC = () => {
     }
 
     // Auth Listener
-    const unsubscribe = auth.onAuthStateChanged((u) => {
-        setUser(u);
-        if (u) {
-            // Privacy fix: Do not log PII (email) to console
-            // console.debug("User logged in"); 
-            // TODO: Here you would typically trigger a sync with Firestore
-        }
-    });
-    return () => unsubscribe();
+    // Check if auth is defined (it might be undefined if Firebase config failed)
+    if (auth) {
+        const unsubscribe = auth.onAuthStateChanged((u) => {
+            setUser(u);
+            if (u) {
+                // User logged in
+            }
+        });
+        return () => unsubscribe();
+    }
   }, []);
 
   // Save settings on change

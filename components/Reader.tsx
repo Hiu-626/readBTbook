@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import { Book, ReaderSettings, ThemeMode, Highlight } from '../types';
 import { cn, convertToTraditional, uuidv4 } from '../utils';
 import { SettingsPanel } from './SettingsPanel';
-import { auth, login, logout } from '../firebase'; // Import directly from firebase to avoid prop drilling hell if possible, but props are cleaner for state
+import { auth, login, logout } from '../firebase'; 
 
 interface ReaderProps {
   book: Book;
@@ -37,15 +37,14 @@ export const Reader: React.FC<ReaderProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
   
-  // Auth State (Local listener for Reader isolated context, or use global state management in real app)
-  // Since App.tsx has the listener, ideally we pass it down. But to minimize file changes, 
-  // we can use the singleton auth instance here or just rely on the prop drilling if App.tsx was updated to pass it.
-  // In the previous step I updated App.tsx but realized I didn't update the Reader usage signature in App.tsx.
-  // To keep it simple and robust: I will use the auth singleton directly here for the SettingsPanel props.
+  // Auth State
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
-      const unsub = auth.onAuthStateChanged(setUser);
-      return () => unsub();
+      // Check if auth is available
+      if (auth) {
+        const unsub = auth.onAuthStateChanged(setUser);
+        return () => unsub();
+      }
   }, []);
   
   // Highlighting
