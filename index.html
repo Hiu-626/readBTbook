@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA / iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="InkFlow" />
+    <meta name="theme-color" content="#F4F4F4" />
+
     <title>InkFlow Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Fonts: Crimson Text (Serif), Inter (Sans), Noto Serif SC (CJK SC), Noto Serif TC (CJK TC) -->
@@ -34,6 +41,11 @@
         overscroll-behavior: none;
         user-select: none;
         -webkit-user-select: none;
+        /* Safe area for iOS PWA */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
       }
     </style>
   <script type="importmap">
@@ -44,13 +56,15 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "clsx": "https://esm.sh/clsx@^2.1.1",
     "tailwind-merge": "https://esm.sh/tailwind-merge@^3.4.0",
+    "opencc-js": "https://esm.sh/opencc-js@^1.0.5",
+    "jszip": "https://esm.sh/jszip@^3.10.1",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@^5.4.530",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "pdfjs-dist": "https://esm.sh/pdfjs-dist@^5.4.530",
-    "jszip": "https://esm.sh/jszip@^3.10.1",
-    "opencc-js": "https://esm.sh/opencc-js@^1.0.5"
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
   }
 }
 </script>

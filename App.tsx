@@ -6,6 +6,7 @@ import { Library } from './components/Library';
 import { Reader } from './components/Reader';
 import { WarmthOverlay } from './components/WarmthOverlay';
 import { uuidv4, parseEbook } from './utils';
+import { auth, login, logout } from './firebase';
 
 const App: React.FC = () => {
   // State
@@ -14,6 +15,7 @@ const App: React.FC = () => {
   const [books, setBooks] = useState<Book[]>([DEMO_BOOK]);
   const [settings, setSettings] = useState<ReaderSettings>(DEFAULT_SETTINGS);
   const [isImporting, setIsImporting] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // Load from local storage on mount
   useEffect(() => {
@@ -21,6 +23,17 @@ const App: React.FC = () => {
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings));
     }
+
+    // Auth Listener
+    const unsubscribe = auth.onAuthStateChanged((u) => {
+        setUser(u);
+        if (u) {
+            // Privacy fix: Do not log PII (email) to console
+            // console.debug("User logged in"); 
+            // TODO: Here you would typically trigger a sync with Firestore
+        }
+    });
+    return () => unsubscribe();
   }, []);
 
   // Save settings on change

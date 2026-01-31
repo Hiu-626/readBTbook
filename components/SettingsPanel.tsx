@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Type, Sun, Moon, Coffee, Minus, Plus, MoveHorizontal, 
-  ArrowUpDown, BookOpen, Languages, X, Gauge, Play, Pause, Volume2
+  ArrowUpDown, BookOpen, Languages, X, Gauge, Play, Pause, Volume2, Cloud, LogOut, User
 } from 'lucide-react';
 import { ReaderSettings, ThemeMode } from '../types';
 import { cn } from '../utils';
@@ -13,6 +13,9 @@ interface SettingsPanelProps {
   onClose: () => void;
   isSpeaking: boolean;
   onToggleSpeech: () => void;
+  user?: any;
+  onLogin?: () => void;
+  onLogout?: () => void;
 }
 
 const Switch = ({ checked, onChange, icon: Icon, label, sublabel }: any) => (
@@ -34,7 +37,7 @@ const Switch = ({ checked, onChange, icon: Icon, label, sublabel }: any) => (
 );
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
-  settings, onUpdate, isOpen, onClose, isSpeaking, onToggleSpeech 
+  settings, onUpdate, isOpen, onClose, isSpeaking, onToggleSpeech, user, onLogin, onLogout
 }) => {
   if (!isOpen) return null;
 
@@ -89,6 +92,42 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
         </div>
 
+        {/* Cloud Sync Section (New) */}
+        <div className="bg-[#EBF5FF] p-5 rounded-3xl space-y-4 border border-blue-100">
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-1"><Cloud size={12}/> Cloud Sync</span>
+            </div>
+            
+            {user ? (
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3 bg-white/50 p-2 rounded-xl">
+                        {user.photoURL ? (
+                            <img src={user.photoURL} className="w-8 h-8 rounded-full border border-stone-200" alt="Avatar" />
+                        ) : (
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500"><User size={16}/></div>
+                        )}
+                        <div className="flex flex-col overflow-hidden">
+                             <span className="text-xs font-bold truncate text-stone-800">{user.displayName || 'User'}</span>
+                             <span className="text-[10px] text-stone-500 truncate">{user.email}</span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onLogout}
+                        className="w-full py-2 bg-white hover:bg-red-50 text-stone-600 hover:text-red-500 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 border border-blue-100/50 shadow-sm"
+                    >
+                        <LogOut size={14} /> Sign Out
+                    </button>
+                </div>
+            ) : (
+                <button 
+                    onClick={onLogin}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-200 active:scale-95 transition-all"
+                >
+                    <span className="text-sm">Sign in with Google</span>
+                </button>
+            )}
+        </div>
+
         {/* Typography */}
         <div className="space-y-4 px-1 pt-2">
             {/* Font Size */}
@@ -110,7 +149,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <span><MoveHorizontal size={10} className="inline mr-1"/> Side Margin</span>
                     <span className="text-black">{settings.marginHorizontal}px</span>
                 </div>
-                <input type="range" min="16" max="100" value={settings.marginHorizontal} onChange={(e) => onUpdate({ marginHorizontal: Number(e.target.value) })} className="w-full accent-stone-800" />
+                <input type="range" min="16" max="200" value={settings.marginHorizontal} onChange={(e) => onUpdate({ marginHorizontal: Number(e.target.value) })} className="w-full accent-stone-800" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

@@ -3,7 +3,7 @@ import { ReaderSettings, ThemeMode, Book } from '../types';
 export const DEFAULT_SETTINGS: ReaderSettings = {
   fontSize: 18,
   lineHeight: 1.6,
-  marginHorizontal: 32, // Increased default margin for better breathing room
+  marginHorizontal: 48, // Increased default margin from 32 to 48
   fontFamily: '"Crimson Text", "Noto Serif TC", "Noto Serif SC", serif',
   warmth: 0,
   textAlign: 'justify',
