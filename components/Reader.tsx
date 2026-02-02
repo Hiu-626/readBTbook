@@ -279,7 +279,7 @@ export const Reader: React.FC<ReaderProps> = ({
       if (!contentRef.current || pageWidth === 0) return;
 
       // Find all header elements within the reader content
-      const headers = Array.from(contentRef.current.querySelectorAll('h1, h2, h3, h4'));
+      const headers = Array.from(contentRef.current.querySelectorAll('h1, h2, h3, h4')) as HTMLElement[];
       
       // Find the one that matches our TOC title
       const targetHeader = headers.find(h => h.textContent?.trim() === title.trim());
