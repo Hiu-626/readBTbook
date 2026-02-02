@@ -32,7 +32,6 @@ const HighlightText = ({ text, highlights }: { text: string, highlights: Highlig
                 newParts.push(part);
                 return;
             }
-            // Simple string matching (Production would use CFI or range indices)
             const idx = part.text.indexOf(h.text);
             if (idx !== -1) {
                 if (idx > 0) newParts.push({ text: part.text.substring(0, idx) });
@@ -65,7 +64,7 @@ const HighlightText = ({ text, highlights }: { text: string, highlights: Highlig
 export const Reader: React.FC<ReaderProps> = ({ 
   book, settings, onUpdateSettings, onBack, onUpdateProgress, onUpdateBook 
 }) => {
-  // Navigation & View State
+  // Navigation
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showMenu, setShowMenu] = useState(false); 
@@ -78,7 +77,7 @@ export const Reader: React.FC<ReaderProps> = ({
   // Features
   const [isSpeaking, setIsSpeaking] = useState(false);
   
-  // Auth State
+  // Auth
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
       if (auth) {
@@ -135,69 +134,76 @@ export const Reader: React.FC<ReaderProps> = ({
     return () => { isMounted = false; };
   }, [book.content, settings.chineseConversion]);
 
-  // --- 2. Pagination Logic ---
-  const [columnWidth, setColumnWidth] = useState<number>(0);
+  // --- 2. Precision Layout Logic ---
+  const [pageWidth, setPageWidth] = useState<number>(0);
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
 
   const calculatePages = useCallback(() => {
     if (!contentRef.current || !containerRef.current) return;
     
+    // 1. Measure Container Exact Integer Width
     const containerRect = containerRef.current.getBoundingClientRect();
-    const clientWidth = Math.floor(containerRect.width);
+    const exactWidth = Math.floor(containerRect.width);
     
-    if (clientWidth === 0) {
+    // If container is collapsed or hidden, retry later
+    if (exactWidth === 0) {
         requestAnimationFrame(calculatePages);
         return;
     }
 
-    setColumnWidth(clientWidth);
+    setPageWidth(exactWidth);
 
+    // 2. Calculate Total Pages
     const scrollWidth = contentRef.current.scrollWidth;
-    const pages = Math.max(1, Math.ceil(scrollWidth / clientWidth));
+    // We strictly use ceil to determine how many 'screens' the content takes up
+    const pages = Math.max(1, Math.ceil(scrollWidth / exactWidth));
     
     setTotalPages(pages);
+    
+    // 3. Validate Current Page
     setCurrentPage(p => {
         const newPage = Math.min(Math.max(1, p), pages);
         return newPage;
     });
-  }, [settings.fontSize, settings.lineHeight, settings.marginHorizontal, processedContent, settings.bilingualMode, settings.twoColumnMode]);
+  }, [settings.fontSize, settings.lineHeight, processedContent, settings.twoColumnMode]);
 
   useEffect(() => {
-    const timer = setTimeout(calculatePages, 100);
-    window.addEventListener('resize', calculatePages);
-    const resizeObserver = new ResizeObserver(() => calculatePages());
+    const timer = setTimeout(calculatePages, 50);
+    const handleResize = () => calculatePages();
+    window.addEventListener('resize', handleResize);
+    
+    const resizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(calculatePages);
+    });
     if (containerRef.current) resizeObserver.observe(containerRef.current);
 
     return () => {
-      window.removeEventListener('resize', calculatePages);
+      window.removeEventListener('resize', handleResize);
       resizeObserver.disconnect();
       clearTimeout(timer);
     };
   }, [calculatePages]);
 
-  // --- 3. Unified Selection Logic ---
+  // Sync progress
+  useEffect(() => {
+      const progress = totalPages > 1 ? (currentPage - 1) / (totalPages - 1) : 0;
+      onUpdateProgress(progress);
+  }, [currentPage, totalPages, onUpdateProgress]);
+
+  // --- 3. Interaction Logic ---
   const checkForSelection = useCallback(() => {
       const selection = window.getSelection();
-      
-      // If no selection or empty selection, return false
-      if (!selection || selection.isCollapsed || selection.toString().trim().length === 0) {
-          return false;
-      }
+      if (!selection || selection.isCollapsed || selection.toString().trim().length === 0) return false;
 
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-
       if (rect.width === 0 && rect.height === 0) return false;
 
-      // Smart positioning for mobile
       let top = rect.top - 60;
-      // If too close to top edge, show below the selection
       if (top < 60) top = rect.bottom + 20;
 
-      // Center horizontally, but keep within screen bounds
-      const menuWidth = 280; // Approximate width of menu
+      const menuWidth = 280;
       let left = rect.left + (rect.width / 2) - (menuWidth / 2);
-      
       if (left < 10) left = 10;
       if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
 
@@ -206,7 +212,6 @@ export const Reader: React.FC<ReaderProps> = ({
       return true;
   }, []);
 
-  // --- 4. Touch & Interaction ---
   const handleTouchStart = (e: React.TouchEvent) => {
     touchEnd.current = null; 
     touchStart.current = e.targetTouches[0].clientX;
@@ -217,62 +222,35 @@ export const Reader: React.FC<ReaderProps> = ({
   };
 
   const handleTouchEnd = () => {
-    // CRITICAL: On mobile, selection usually settles slightly after touchend.
-    // We wait briefly to check if the user was selecting text.
     setTimeout(() => {
-        // 1. Check if user selected text
-        const hasSelection = checkForSelection();
-        if (hasSelection) {
-            // User is selecting, DO NOT swipe or turn page
-            return;
-        }
-
-        // 2. If no selection, handle Swipe
+        if (checkForSelection()) return;
         if (!touchStart.current || !touchEnd.current) return;
         const distance = touchStart.current - touchEnd.current;
-
-        // Reset
         touchStart.current = null;
         touchEnd.current = null;
-
         if (distance > minSwipeDistance) setCurrentPage(p => Math.min(totalPages, p + 1));
         else if (distance < -minSwipeDistance) setCurrentPage(p => Math.max(1, p - 1));
-    }, 50); // 50ms delay to allow selection to register
+    }, 50);
   };
 
   const handleInteraction = (e: React.MouseEvent) => {
-     // CRITICAL: Desktop check. If text is selected, stop.
      if (window.getSelection()?.toString().trim().length > 0) return;
-     
-     // Prevent clicking UI elements from triggering page turn
      if ((e.target as HTMLElement).closest('button, input, a')) return;
-     
-     // If menu is open, closing it takes precedence
      if (selectionRect) {
          setSelectionRect(null);
          window.getSelection()?.removeAllRanges();
          return;
      }
-
-     // Use clientX from mouse event
      const x = e.clientX;
      const w = window.innerWidth;
-     
-     // Navigation Zones
      if (x < w * 0.25) setCurrentPage(p => Math.max(1, p - 1));
      else if (x > w * 0.75) setCurrentPage(p => Math.min(totalPages, p + 1));
      else setShowMenu(!showMenu);
   };
 
-  // Handle MouseUp for Desktop Selection
-  const handleMouseUp = () => {
-      // Small timeout to let click event finish before checking selection
-      setTimeout(() => {
-          checkForSelection();
-      }, 10);
-  };
+  const handleMouseUp = () => { setTimeout(checkForSelection, 10); };
 
-  // --- 5. Actions ---
+  // --- 4. Actions ---
   const saveHighlight = (note?: string, translation?: string) => {
     if (!onUpdateBook) return;
     const newHighlight: Highlight = {
@@ -289,88 +267,42 @@ export const Reader: React.FC<ReaderProps> = ({
     if (note) setShowNotesPanel(true);
   };
 
-  const handleTranslate = () => {
-      saveHighlight(undefined, `[AI] ${selectedText.substring(0, 15)}...`);
-  };
-
+  const handleTranslate = () => { saveHighlight(undefined, `[AI] ${selectedText.substring(0, 15)}...`); };
   const handleCopy = () => {
       navigator.clipboard.writeText(selectedText);
       setSelectionRect(null);
       window.getSelection()?.removeAllRanges();
   };
 
-  // --- 6. TTS Logic ---
-  const speakNext = useCallback(() => {
-      if (!synth.current || !speechState.current.active) return;
-      const { index, segments } = speechState.current;
-      if (index >= segments.length || index < 0) {
-          setIsSpeaking(false);
-          speechState.current.active = false;
-          return;
+  // --- 5. Jump to Chapter (Precise DOM Navigation) ---
+  const jumpToChapter = (title: string) => {
+      if (!contentRef.current || pageWidth === 0) return;
+
+      // Find all header elements within the reader content
+      const headers = Array.from(contentRef.current.querySelectorAll('h1, h2, h3, h4'));
+      
+      // Find the one that matches our TOC title
+      const targetHeader = headers.find(h => h.textContent?.trim() === title.trim());
+
+      if (targetHeader) {
+          // Calculate exact page: 
+          // offsetLeft gives the pixel distance from the left edge of the content container.
+          // Since the container is paginated horizontally using columns/transform, 
+          // offsetLeft directly corresponds to the scroll position.
+          const elementOffset = (targetHeader as HTMLElement).offsetLeft;
+          
+          // Convert pixels to page number (1-based index)
+          const targetPage = Math.floor(elementOffset / pageWidth) + 1;
+          
+          setCurrentPage(targetPage);
+          setShowTocPanel(false);
+          setShowMenu(false);
+      } else {
+          console.warn("Chapter element not found in DOM:", title);
       }
-      const text = segments[index];
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = /[a-zA-Z]/.test(text.substring(0, 20)) ? 'en-US' : 'zh-HK';
-      utterance.rate = settings.readingSpeed || 1.0;
-      utterance.onend = () => {
-          if (speechState.current.active) {
-              speechState.current.index += 1;
-              speakNext();
-          } else {
-              setIsSpeaking(false);
-          }
-      };
-      utterance.onerror = () => {
-          setIsSpeaking(false);
-          speechState.current.active = false;
-      };
-      synth.current.speak(utterance);
-  }, [settings.readingSpeed]);
-
-  const stopSpeaking = () => {
-      speechState.current.active = false;
-      if (synth.current) synth.current.cancel();
-      setIsSpeaking(false);
   };
 
-  const toggleSpeech = () => {
-    if (isSpeaking) {
-      stopSpeaking();
-    } else {
-      const progress = (currentPage - 1) / totalPages;
-      const totalSegments = speechState.current.segments.length;
-      const startIndex = Math.floor(totalSegments * progress);
-      setIsSpeaking(true);
-      speechState.current = { ...speechState.current, active: true, index: Math.max(0, startIndex) };
-      if (synth.current) synth.current.cancel();
-      speakNext();
-    }
-  };
-
-  const startReadingFromParagraph = (text: string) => {
-      const segments = speechState.current.segments;
-      const snippet = text.substring(0, 30).trim();
-      let index = segments.findIndex(s => s.includes(snippet));
-      if (index === -1) index = Math.floor(segments.length * ((currentPage - 1) / totalPages));
-      if (synth.current) synth.current.cancel();
-      setIsSpeaking(true);
-      speechState.current = { ...speechState.current, active: true, index: index };
-      speakNext();
-  };
-
-  useEffect(() => { return () => { stopSpeaking(); } }, []);
-
-  // --- 7. TOC Logic ---
-  const toc = useMemo(() => {
-    return processedContent.split('\n')
-      .filter(line => line.startsWith('#'))
-      .map((line, index) => ({
-        title: line.replace(/^#+\s*/, '').replace(/\*/g, ''),
-        level: (line.match(/^#+/) || ['#'])[0].length,
-        index
-      }));
-  }, [processedContent]);
-
+  // --- 6. Rendering Config ---
   const themeClasses = {
     bg: settings.theme === ThemeMode.Night ? "bg-[#121212]" : settings.theme === ThemeMode.Sepia ? "bg-[#F4ECD8]" : "bg-[#F9F9F9]",
     text: settings.theme === ThemeMode.Night ? "text-[#B0B0B0]" : settings.theme === ThemeMode.Sepia ? "text-[#5A4A42]" : "text-[#1A1A1A]",
@@ -378,17 +310,25 @@ export const Reader: React.FC<ReaderProps> = ({
     uiBg: settings.theme === ThemeMode.Night ? "bg-[#1E1E1E]" : "bg-[#F9F9F9]" 
   };
 
-  const isLargeScreen = typeof window !== 'undefined' && window.innerWidth > 768;
-  const basePadding = isLargeScreen ? 60 : 20; 
-  const userMargin = isMobile ? Math.min(24, settings.marginHorizontal) : settings.marginHorizontal;
-  const totalPadding = basePadding + userMargin;
-  const computedTextAlign = isMobile ? 'left' : settings.textAlign;
+  const horizontalMargin = isMobile ? Math.min(20, settings.marginHorizontal) : settings.marginHorizontal;
+  const isTwoColumn = settings.twoColumnMode && !isMobile;
+  const columnGap = isTwoColumn ? 60 : 0; 
+
+  const toc = useMemo(() => {
+    return processedContent.split('\n')
+      .filter(line => line.startsWith('#'))
+      .map((line, index) => ({
+        // Clean title to match what shows up in the DOM (h1/h2 textContent)
+        title: line.replace(/^#+\s*/, '').replace(/\*/g, '').trim(),
+        level: (line.match(/^#+/) || ['#'])[0].length,
+        index
+      }));
+  }, [processedContent]);
 
   return (
-    // Changed: Removed 'select-none' from root container to allow text selection where specified
     <div className={cn("relative w-full h-full overflow-hidden flex flex-col transition-colors duration-500 font-serif touch-pan-y", themeClasses.bg, themeClasses.text)}>
       
-      {/* 1. Top Status Bar (Added select-none to prevent accidental UI selection) */}
+      {/* 1. Top Bar */}
       <div className={cn(
           "absolute top-0 w-full h-14 flex justify-between items-center px-4 z-40 transition-transform duration-300 border-b border-black/5 select-none", 
           themeClasses.uiBg,
@@ -401,7 +341,7 @@ export const Reader: React.FC<ReaderProps> = ({
         <div className="w-10"></div> 
       </div>
 
-      {/* 2. Main Reader Area */}
+      {/* 2. Reader Content Area */}
       <div 
         ref={containerRef}
         className="flex-1 w-full relative overflow-hidden cursor-text"
@@ -410,62 +350,78 @@ export const Reader: React.FC<ReaderProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onMouseUp={handleMouseUp}
-        style={{ 
-            paddingLeft: `${totalPadding}px`,
-            paddingRight: `${totalPadding}px`,
-            paddingTop: 'calc(env(safe-area-inset-top, 20px) + 20px)',
-            paddingBottom: 'calc(env(safe-area-inset-bottom, 20px) + 40px)'
-        }}
+        style={{ width: '100%', height: '100vh' }}
       >
         <div 
             ref={contentRef}
             className={cn(
                 "h-full transition-transform duration-300 ease-out will-change-transform", 
-                settings.twoColumnMode && isLargeScreen ? "columns-2" : "columns-1"
             )}
             style={{
-                transform: `translateX(-${(currentPage - 1) * 100}%)`,
+                transform: `translateX(-${(currentPage - 1) * pageWidth}px)`,
                 fontSize: `${settings.fontSize}px`,
                 lineHeight: settings.lineHeight,
-                textAlign: computedTextAlign as any,
-                columnFill: 'auto',
-                columnWidth: (settings.twoColumnMode && isLargeScreen) ? 'auto' : `${columnWidth}px`,
-                columnGap: (settings.twoColumnMode && isLargeScreen) ? '80px' : '0px',
-                columnRule: (settings.twoColumnMode && isLargeScreen) ? `1px solid ${settings.theme === ThemeMode.Night ? '#333' : '#e5e5e5'}` : 'none',
-                height: '100%',
-                width: '100%'
+                textAlign: 'justify',
+                
+                columnCount: isTwoColumn ? 2 : 1,
+                columnWidth: isTwoColumn ? 'auto' : `${pageWidth}px`,
+                columnGap: `${columnGap}px`,
+                columnRule: 'none',
+                columnFill: 'auto', 
+
+                height: 'calc(100vh - 120px)', 
+                width: '100%', 
+                marginTop: '60px',
+                marginBottom: '60px',
+                
+                // IMPORTANT: Fix for CJK text overlapping
+                wordBreak: 'break-all', 
+                overflowWrap: 'break-word',
+                hyphens: 'auto',
+                WebkitHyphens: 'auto',
             }}
         >
             <style>{`
-                .markdown-body p { 
-                    margin-bottom: ${(settings.paragraphSpacing || 1.5)}em !important; 
-                    text-indent: ${(settings.paragraphSpacing || 0) > 0.5 ? '0' : '2em'};
+                .markdown-body {
+                    padding: 0 ${horizontalMargin}px;
+                    box-sizing: border-box;
+                    user-select: text !important;
+                    -webkit-user-select: text !important;
                     max-width: 100%;
                 }
+                
+                /* FIX: Use padding instead of margin for paragraphs to prevent column collapse issues with CJK */
+                .markdown-body p { 
+                    margin-bottom: 0 !important;
+                    padding-bottom: ${(settings.paragraphSpacing || 1.5)}em !important; 
+                    text-indent: ${(settings.paragraphSpacing || 0) > 0.5 ? '0' : '2em'};
+                    text-align: justify;
+                    text-justify: inter-ideograph; /* Crucial for CJK */
+                    orphans: 2;
+                    widows: 2;
+                }
+
                 .markdown-body h1, .markdown-body h2 {
-                    margin-top: 1.5em; 
-                    margin-bottom: 0.8em; 
+                    margin-top: 0;
+                    padding-top: 1.5em; 
+                    padding-bottom: 0.8em; 
                     text-align: center;
                     page-break-after: avoid;
                     break-before: column; 
                     -webkit-column-break-before: always;
                 }
-                .markdown-body h1:first-child {
-                     break-before: auto;
-                }
+                
+                .markdown-body h1:first-child { break-before: auto; }
+
                 .markdown-body img { 
                     max-width: 100%; 
                     height: auto; 
-                    max-height: 70vh; 
+                    max-height: 60vh; 
                     display: block; 
-                    margin: 2em auto; 
+                    margin: 1em auto; 
                     filter: ${settings.theme === ThemeMode.Night ? 'brightness(0.8) contrast(1.1)' : 'none'};
                 }
-                /* IMPORTANT: Enable selection specifically on content */
-                .markdown-body {
-                    user-select: text !important;
-                    -webkit-user-select: text !important;
-                }
+
                 ::selection {
                    background: ${settings.theme === ThemeMode.Night ? '#444' : '#E6E6E6'};
                 }
@@ -483,30 +439,11 @@ export const Reader: React.FC<ReaderProps> = ({
                                 return '';
                             };
                             const text = getText(children);
-                            const hasText = text && text.trim().length > 0;
-                            
                             return (
                                 <div className="relative group">
-                                    {settings.ttsEnabled && hasText && (
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); startReadingFromParagraph(text); }}
-                                            className={cn(
-                                                "absolute -left-10 top-0 p-2 transition-all z-10 rounded-full opacity-0 group-hover:opacity-100",
-                                                settings.theme === ThemeMode.Night ? "text-stone-400 bg-white/10" : "text-stone-400 bg-black/5"
-                                            )}
-                                        >
-                                            <Volume2 size={16} />
-                                        </button>
-                                    )}
                                     <p {...props} className={cn(props.className, "relative")}>
                                         <HighlightText text={text} highlights={book.highlights} />
                                     </p>
-                                    {settings.bilingualMode && hasText && (
-                                        <div className={cn("bilingual-block mt-2 mb-6 p-4 rounded-lg border-l-[3px] text-[0.9em] opacity-80", themeClasses.text)}>
-                                            <div className="flex items-center gap-2 mb-1 opacity-60"><Languages size={10} /><span className="text-[9px] font-bold uppercase">Translation</span></div>
-                                            <p>[翻譯] 這是自動生成的翻譯佔位符。</p>
-                                        </div>
-                                    )}
                                 </div>
                             )
                         }
@@ -519,7 +456,7 @@ export const Reader: React.FC<ReaderProps> = ({
         </div>
       </div>
 
-      {/* 3. Floating Highlight Menu (Fixed positioning for mobile stability) */}
+      {/* 3. Highlight Menu */}
       {selectionRect && (
         <div 
             className="fixed z-[100] flex bg-[#1A1A1A] text-white rounded-full shadow-2xl px-4 py-2 gap-4 items-center animate-in zoom-in-95 duration-200 select-none"
@@ -534,7 +471,7 @@ export const Reader: React.FC<ReaderProps> = ({
         </div>
       )}
 
-      {/* 4. Bottom Controls (Added select-none) */}
+      {/* 4. Bottom Controls */}
       <div className={cn(
           "absolute bottom-0 w-full z-50 pb-safe-bottom transition-transform duration-300 border-t border-black/5 select-none", 
           themeClasses.uiBg,
@@ -564,27 +501,22 @@ export const Reader: React.FC<ReaderProps> = ({
       <SettingsPanel 
           settings={settings} onUpdate={onUpdateSettings} 
           isOpen={showTypography && showMenu} onClose={() => setShowTypography(false)} 
-          isSpeaking={isSpeaking} onToggleSpeech={toggleSpeech} user={user} onLogin={login} onLogout={logout}
+          isSpeaking={isSpeaking} onToggleSpeech={() => {}} user={user} onLogin={login} onLogout={logout}
       />
       
-      {/* 5. Sidebar Panels */}
+      {/* 5. Panels (TOC/Notes) */}
       {showTocPanel && (
           <div className="absolute inset-0 z-[70] flex justify-start animate-in fade-in bg-black/20 backdrop-blur-[2px] select-none">
-              <div className={cn(
-                  "w-[85%] max-w-xs h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300",
-                  themeClasses.uiBg
-              )}>
+              <div className={cn("w-[85%] max-w-xs h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300", themeClasses.uiBg)}>
                   <div className="h-14 px-5 border-b border-black/5 flex justify-between items-center">
-                      <span className={cn("text-xs font-bold uppercase tracking-widest opacity-50", themeClasses.fg)}>
-                          Contents
-                      </span>
+                      <span className={cn("text-xs font-bold uppercase tracking-widest opacity-50", themeClasses.fg)}>Contents</span>
                       <button onClick={() => setShowTocPanel(false)} className={cn("p-2 rounded-full hover:bg-black/5", themeClasses.fg)}><X size={18}/></button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-2">
                        {toc.map((item, i) => (
-                          <button key={i} onClick={() => { setCurrentPage(Math.max(1, Math.floor((item.index / toc.length) * totalPages))); setShowTocPanel(false); }}
+                          <button key={i} onClick={() => jumpToChapter(item.title)}
                             className={cn("w-full text-left px-4 py-3 rounded-lg text-sm transition-colors", 
-                                Math.floor((currentPage/totalPages)*toc.length) === i ? "bg-black/5 font-bold" : "opacity-70 hover:bg-black/5", themeClasses.fg)}>
+                                "opacity-70 hover:bg-black/5 hover:opacity-100", themeClasses.fg)}>
                             <span className={cn("block truncate", item.level > 1 && "pl-4 opacity-80")}>{item.title}</span>
                           </button>
                       ))}
@@ -597,14 +529,9 @@ export const Reader: React.FC<ReaderProps> = ({
       {showNotesPanel && (
           <div className="absolute inset-0 z-[70] flex justify-end animate-in fade-in bg-black/20 backdrop-blur-[2px] select-none">
               <div className="flex-1" onClick={() => setShowNotesPanel(false)} />
-              <div className={cn(
-                  "w-[85%] max-w-xs h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300",
-                  themeClasses.uiBg
-              )}>
+              <div className={cn("w-[85%] max-w-xs h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300", themeClasses.uiBg)}>
                    <div className="h-14 px-5 border-b border-black/5 flex justify-between items-center">
-                      <span className={cn("text-xs font-bold uppercase tracking-widest opacity-50", themeClasses.fg)}>
-                          Notes
-                      </span>
+                      <span className={cn("text-xs font-bold uppercase tracking-widest opacity-50", themeClasses.fg)}>Notes</span>
                       <button onClick={() => setShowNotesPanel(false)} className={cn("p-2 rounded-full hover:bg-black/5", themeClasses.fg)}><X size={18}/></button>
                   </div>
                   <div className="flex-1 overflow-y-auto p-2">
@@ -614,13 +541,7 @@ export const Reader: React.FC<ReaderProps> = ({
                                 <div key={h.id} className="bg-black/5 p-3 rounded-xl space-y-2">
                                     <div className={cn("text-sm italic font-serif opacity-80 border-l-2 border-yellow-400 pl-2", themeClasses.fg)}>"{h.text}"</div>
                                     {h.note && <div className="text-xs opacity-60 ml-2 font-sans bg-white/50 p-1 rounded px-2 inline-block">{h.note}</div>}
-                                    {h.translation && <div className="text-xs text-blue-500 ml-2 font-sans">{h.translation}</div>}
-                                    <button onClick={() => {
-                                        if(onUpdateBook) {
-                                            const newHighlights = book.highlights.filter(hl => hl.id !== h.id);
-                                            onUpdateBook(book.id, { highlights: newHighlights });
-                                        }
-                                    }} className="text-[10px] text-red-300 hover:text-red-500 block w-full text-right uppercase font-bold mt-1">Delete</button>
+                                    <button onClick={() => { if(onUpdateBook) { const newHighlights = book.highlights.filter(hl => hl.id !== h.id); onUpdateBook(book.id, { highlights: newHighlights }); }}} className="text-[10px] text-red-300 hover:text-red-500 block w-full text-right uppercase font-bold mt-1">Delete</button>
                                 </div>
                             ))}
                         </div>
